@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">AGI Газовый контроль</string>
+    <string name="title_activity_main">AGI Газовый контроль</string>
+    <string name="package_name">kz.agi.gazcontrol</string>
+    <string name="custom_url_scheme">kz.agi.gazcontrol</string>
+</resources>
