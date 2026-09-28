@@ -14,6 +14,11 @@ function App() {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [recoveryMode, setRecoveryMode] = useState(false);
+const [newPassword, setNewPassword] = useState('');
+const [newPassword2, setNewPassword2] = useState('');
+const [recoveryError, setRecoveryError] = useState('');
+const [recoveryBusy, setRecoveryBusy] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
@@ -52,8 +57,9 @@ function App() {
       setAuthLoading(false);
     }
     init();
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
       setSession(nextSession);
+      if (event === 'PASSWORD_RECOVERY') setRecoveryMode(true);
       if (nextSession?.user) await loadProfile(nextSession.user.id);
       else { setProfile(null); setItems([]); }
     });
@@ -64,6 +70,36 @@ function App() {
     const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
     if (error) { console.error(error); setProfile(null); return; }
     setProfile(data);
+    async function updatePassword() {
+  setRecoveryError('');
+
+  if (newPassword.length < 8) {
+    setRecoveryError('Пароль должен содержать минимум 8 символов');
+    return;
+  }
+
+  if (newPassword !== newPassword2) {
+    setRecoveryError('Пароли не совпадают');
+    return;
+  }
+
+  setRecoveryBusy(true);
+
+  const { error } = await supabase.auth.updateUser({
+    password: newPassword
+  });
+
+  if (error) {
+    setRecoveryError(error.message);
+  } else {
+    setRecoveryMode(false);
+    setNewPassword('');
+    setNewPassword2('');
+    alert('Пароль успешно изменён');
+  }
+
+  setRecoveryBusy(false);
+}
   }
 
   async function login() {
@@ -314,6 +350,47 @@ function App() {
   }
 
   if (authLoading) return <div className="app"><div style={{padding:60,textAlign:'center'}}>Загрузка AGI...</div></div>;
+  if (recoveryMode) return (
+  <div className="app">
+    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+      <div className="modal" style={{width:'100%',maxWidth:420}}>
+        <div style={{textAlign:'center',marginBottom:20}}>
+          <div className="logo" style={{margin:'0 auto 12px'}}>AGI</div>
+          <h2>Новый пароль</h2>
+          <p>Введите новый пароль для вашей учётной записи</p>
+        </div>
+
+        <input
+          type="password"
+          placeholder="Новый пароль"
+          value={newPassword}
+          onChange={e => setNewPassword(e.target.value)}
+        />
+
+        <input
+          type="password"
+          placeholder="Повторите новый пароль"
+          value={newPassword2}
+          onChange={e => setNewPassword2(e.target.value)}
+        />
+
+        {recoveryError && (
+          <div style={{color:'#b42318',background:'#fff2f2',padding:10,borderRadius:8,marginBottom:12}}>
+            {recoveryError}
+          </div>
+        )}
+
+        <button
+          className="primary wide"
+          onClick={updatePassword}
+          disabled={recoveryBusy}
+        >
+          {recoveryBusy ? 'Сохранение...' : 'Сохранить новый пароль'}
+        </button>
+      </div>
+    </div>
+  </div>
+);
 
   if (!session) return (
     <div className="app"><div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
