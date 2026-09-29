@@ -1,5 +1,8 @@
 {
   "appId": "kz.agi.gazcontrol",
   "appName": "AGI Газовый контроль",
-  "webDir": "dist"
+  "webDir": "dist",
+  "server": {
+    "url": "https://agi-gaz-control-web.vercel.app"
+  }
 }
