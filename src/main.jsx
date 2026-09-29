@@ -14,11 +14,6 @@ function App() {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [recoveryMode, setRecoveryMode] = useState(false);
-const [newPassword, setNewPassword] = useState('');
-const [newPassword2, setNewPassword2] = useState('');
-const [recoveryError, setRecoveryError] = useState('');
-const [recoveryBusy, setRecoveryBusy] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
@@ -35,6 +30,7 @@ const [recoveryBusy, setRecoveryBusy] = useState(false);
   const [editBusy, setEditBusy] = useState(false);
   const [completeForm, setCompleteForm] = useState({ result: '', readings: '', worker_comment: '', photo: null, verification_status: '' });
   const [selectedStatus, setSelectedStatus] = useState('new');
+  const [collapsedDoneDates, setCollapsedDoneDates] = useState({});
   const [showReport, setShowReport] = useState(false);
   const [reportFrom, setReportFrom] = useState('');
   const [reportTo, setReportTo] = useState('');
@@ -45,7 +41,7 @@ const [recoveryBusy, setRecoveryBusy] = useState(false);
   const [employees, setEmployees] = useState([]);
   const [employeeForm, setEmployeeForm] = useState({ full_name: '', phone: '', role: 'worker', email: '' });
   const [employeeBusy, setEmployeeBusy] = useState(false);
-  const statusText = { new: 'Новая', working: 'В работе', done: 'Выполнена' };
+  const statusText = { new: 'Новая', working: 'В работе', done: 'Выполнена', archive: 'Архив' };
 
   useEffect(() => {
     let active = true;
@@ -57,9 +53,8 @@ const [recoveryBusy, setRecoveryBusy] = useState(false);
       setAuthLoading(false);
     }
     init();
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
       setSession(nextSession);
-      if (event === 'PASSWORD_RECOVERY') setRecoveryMode(true);
       if (nextSession?.user) await loadProfile(nextSession.user.id);
       else { setProfile(null); setItems([]); }
     });
@@ -70,36 +65,6 @@ const [recoveryBusy, setRecoveryBusy] = useState(false);
     const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
     if (error) { console.error(error); setProfile(null); return; }
     setProfile(data);
-    async function updatePassword() {
-  setRecoveryError('');
-
-  if (newPassword.length < 8) {
-    setRecoveryError('Пароль должен содержать минимум 8 символов');
-    return;
-  }
-
-  if (newPassword !== newPassword2) {
-    setRecoveryError('Пароли не совпадают');
-    return;
-  }
-
-  setRecoveryBusy(true);
-
-  const { error } = await supabase.auth.updateUser({
-    password: newPassword
-  });
-
-  if (error) {
-    setRecoveryError(error.message);
-  } else {
-    setRecoveryMode(false);
-    setNewPassword('');
-    setNewPassword2('');
-    alert('Пароль успешно изменён');
-  }
-
-  setRecoveryBusy(false);
-}
   }
 
   async function login() {
@@ -202,6 +167,7 @@ const [recoveryBusy, setRecoveryBusy] = useState(false);
     if (status === 'Новая') return 'new';
     if (status === 'В работе') return 'working';
     if (status === 'Выполнена') return 'done';
+    if (status === 'Архив') return 'archive';
     return status;
   }
 
@@ -267,6 +233,28 @@ const [recoveryBusy, setRecoveryBusy] = useState(false);
     }).eq('id', id).eq('status', 'Новая').select();
     if (error) { console.error(error); alert('Не удалось взять заявку в работу'); return; }
     if (!data || data.length === 0) { alert('Эту заявку уже взял другой работник'); await loadRequests(); return; }
+    await loadRequests();
+  }
+
+  async function refuseService(id) {
+    if (!window.confirm('Отказаться от услуг? Заявка будет перенесена в Архив и не будет удалена.')) return;
+
+    const { data, error } = await supabase.from('requests').update({
+      status: 'Архив'
+    }).eq('id', id).eq('status', 'В работе').eq('taken_by', profile.full_name).select();
+
+    if (error) {
+      console.error(error);
+      alert('Не удалось перенести заявку в архив');
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      alert('Заявка уже была изменена');
+      await loadRequests();
+      return;
+    }
+
     await loadRequests();
   }
 
@@ -350,47 +338,6 @@ const [recoveryBusy, setRecoveryBusy] = useState(false);
   }
 
   if (authLoading) return <div className="app"><div style={{padding:60,textAlign:'center'}}>Загрузка AGI...</div></div>;
-  if (recoveryMode) return (
-  <div className="app">
-    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
-      <div className="modal" style={{width:'100%',maxWidth:420}}>
-        <div style={{textAlign:'center',marginBottom:20}}>
-          <div className="logo" style={{margin:'0 auto 12px'}}>AGI</div>
-          <h2>Новый пароль</h2>
-          <p>Введите новый пароль для вашей учётной записи</p>
-        </div>
-
-        <input
-          type="password"
-          placeholder="Новый пароль"
-          value={newPassword}
-          onChange={e => setNewPassword(e.target.value)}
-        />
-
-        <input
-          type="password"
-          placeholder="Повторите новый пароль"
-          value={newPassword2}
-          onChange={e => setNewPassword2(e.target.value)}
-        />
-
-        {recoveryError && (
-          <div style={{color:'#b42318',background:'#fff2f2',padding:10,borderRadius:8,marginBottom:12}}>
-            {recoveryError}
-          </div>
-        )}
-
-        <button
-          className="primary wide"
-          onClick={updatePassword}
-          disabled={recoveryBusy}
-        >
-          {recoveryBusy ? 'Сохранение...' : 'Сохранить новый пароль'}
-        </button>
-      </div>
-    </div>
-  </div>
-);
 
   if (!session) return (
     <div className="app"><div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
@@ -442,6 +389,13 @@ const [recoveryBusy, setRecoveryBusy] = useState(false);
             count:items.filter(x=>convertStatus(x.status)==='done').length,
             icon:'✅',
             subtitle:'Завершённые заявки'
+          },
+          {
+            key:'archive',
+            label:'АРХИВ',
+            count:items.filter(x=>convertStatus(x.status)==='archive').length,
+            icon:'🗄️',
+            subtitle:'Отказавшиеся и архивные заявки'
           }
         ].map(tab => (
           <button
@@ -495,6 +449,13 @@ const [recoveryBusy, setRecoveryBusy] = useState(false);
             const db = b.completed_at ? new Date(b.completed_at).getTime() : 0;
             return db-da;
           });
+        const archiveItems = filtered
+          .filter(x=>convertStatus(x.status)==='archive')
+          .sort((a,b)=>{
+            const da = a.taken_at ? new Date(a.taken_at).getTime() : 0;
+            const db = b.taken_at ? new Date(b.taken_at).getTime() : 0;
+            return db-da;
+          });
         const doneGroups = doneItems.reduce((groups, item) => {
           const key = item.completed_at ? new Date(item.completed_at).toLocaleDateString('ru-RU') : 'Дата не указана';
           if (!groups[key]) groups[key] = [];
@@ -540,6 +501,7 @@ const [recoveryBusy, setRecoveryBusy] = useState(false);
           </div>}
           <div className="actions">{isWorker && status==='new' && <button className="primary" onClick={()=>takeRequest(x.id)}>Взять в работу</button>}{isWorker && status==='working' && x.taken_by===profile.full_name && <>
             <button type="button" onClick={()=>setContactId(x.id)}>📞 Не удалось связаться</button>
+            <button type="button" onClick={()=>refuseService(x.id)} style={{background:'#fff7ed',color:'#c2410c',border:'1px solid #fed7aa'}}>🚫 Отказ от услуг</button>
             <button className="success" onClick={()=>{setCompleteId(x.id);setCompleteForm({result:'',readings:'',worker_comment:'',photo:null,verification_status:''});}}><CheckCircle2 size={17}/>Завершить проверку</button>
           </>}{isManager && <button type="button" onClick={()=>setDetailItem(x)}>Подробнее</button>}{isManager && <span className="date"><Clock3 size={15}/>Создана {x.created_at ? new Date(x.created_at).toLocaleDateString('ru-RU') : '—'}</span>}</div>
         </article>; };
@@ -590,12 +552,37 @@ const [recoveryBusy, setRecoveryBusy] = useState(false);
             </div>
             <span style={{minWidth:34,height:34,padding:'0 10px',display:'inline-flex',alignItems:'center',justifyContent:'center',borderRadius:18,background:'#f2f4f7',fontWeight:800,color:'#344054'}}>{doneItems.length}</span>
           </div>
-          {!doneItems.length ? <div style={{padding:26,textAlign:'center',background:'#f8fafc',borderRadius:12,color:'#667085'}}>Выполненных заявок нет</div> : Object.entries(doneGroups).map(([date,list]) => <div key={date} style={{marginBottom:24}}>
-            <div style={{display:'flex',alignItems:'center',gap:10,margin:'18px 0 10px',padding:'10px 14px',background:'#eef2ff',border:'1px solid #c7d2fe',borderRadius:10}}>
-              <span style={{fontSize:18}}>📅</span><b style={{fontSize:16}}>{date}</b><span style={{fontSize:13,color:'#667085'}}>— {list.length} заявок</span>
+          {!doneItems.length ? <div style={{padding:26,textAlign:'center',background:'#f8fafc',borderRadius:12,color:'#667085'}}>Выполненных заявок нет</div> : Object.entries(doneGroups).map(([date,list]) => {
+            const isCollapsed = !!collapsedDoneDates[date];
+            return <div key={date} style={{marginBottom:12}}>
+              <button
+                type="button"
+                onClick={()=>setCollapsedDoneDates(prev=>({...prev,[date]:!prev[date]}))}
+                style={{width:'100%',display:'flex',alignItems:'center',gap:10,margin:'10px 0',padding:'12px 14px',background:'#eef2ff',border:'1px solid #c7d2fe',borderRadius:10,cursor:'pointer',textAlign:'left'}}
+              >
+                <span style={{fontSize:18}}>{isCollapsed ? '▶' : '▼'}</span>
+                <span style={{fontSize:18}}>📅</span>
+                <b style={{fontSize:16}}>{date}</b>
+                <span style={{fontSize:13,color:'#667085'}}>— {list.length} заявок</span>
+              </button>
+              {!isCollapsed && <div className="cards">{list.map(renderCard)}</div>}
+            </div>;
+          })}
+        </section>;
+        if (selectedStatus === 'archive') return <section style={{marginTop:20}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:12,padding:'4px 2px'}}>
+            <div>
+              <h2 style={{margin:0,fontSize:21}}>Архив</h2>
+              <div style={{fontSize:13,color:'#667085',marginTop:3}}>Заявки, перенесённые в архив</div>
             </div>
-            <div className="cards">{list.map(renderCard)}</div>
-          </div>)}
+            <span style={{minWidth:34,height:34,padding:'0 10px',display:'inline-flex',alignItems:'center',justifyContent:'center',borderRadius:18,background:'#f2f4f7',fontWeight:800,color:'#344054'}}>{archiveItems.length}</span>
+          </div>
+          {!archiveItems.length
+            ? <div style={{padding:26,textAlign:'center',background:'#f8fafc',borderRadius:12,color:'#667085'}}>Архив пуст</div>
+            : <div className="cards">{archiveItems.map(x => <div key={x.id}>
+                {renderCard(x)}
+                {x.status === 'Архив' && <div style={{marginTop:-8,marginBottom:14,padding:'9px 12px',background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:10,color:'#9a3412',fontWeight:700}}>Причина: Отказ от услуг</div>}
+              </div>)}</div>}
         </section>;
         return section('Новые заявки',newItems,'Новых заявок нет');
       })()}
