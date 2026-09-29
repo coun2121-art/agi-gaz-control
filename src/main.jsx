@@ -41,6 +41,7 @@ function App() {
   const [employees, setEmployees] = useState([]);
   const [employeeForm, setEmployeeForm] = useState({ full_name: '', phone: '', role: 'worker', email: '' });
   const [employeeBusy, setEmployeeBusy] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState(null);
   const statusText = { new: 'Новая', working: 'В работе', done: 'Выполнена', archive: 'Архив' };
 
   useEffect(() => {
@@ -89,12 +90,30 @@ function App() {
       alert('Укажите ФИО и email сотрудника');
       return;
     }
+    alert('Для безопасного создания нового логина нужен отдельный серверный шаг через Supabase Auth. Сейчас можно управлять уже зарегистрированными пользователями.');
+  }
+
+  async function saveEmployee() {
+    if (!editingEmployee) return;
+    if (!editingEmployee.full_name.trim()) {
+      alert('Укажите ФИО сотрудника');
+      return;
+    }
     setEmployeeBusy(true);
-    // Профиль привязывается к UUID пользователя Supabase Auth. Сам безопасный
-    // выпуск логина/пароля выполняется через Supabase Auth/сервер, поэтому
-    // здесь сохраняем карточку сотрудника только если такой UUID уже известен.
-    alert('Карточка сотрудника подготовлена. Для создания рабочего логина нужен отдельный шаг через Supabase Auth — пароль в базу приложения не сохраняем.');
+    const { data, error } = await supabase.from('profiles').update({
+      full_name: editingEmployee.full_name.trim(),
+      phone: editingEmployee.phone?.trim() || null,
+      role: editingEmployee.role
+    }).eq('id', editingEmployee.id).select().single();
     setEmployeeBusy(false);
+    if (error) {
+      console.error(error);
+      alert('Не удалось сохранить данные сотрудника');
+      return;
+    }
+    setEmployees(prev => prev.map(item => item.id === data.id ? data : item));
+    if (profile.id === data.id) setProfile(data);
+    setEditingEmployee(null);
   }
 
   async function loadRequests() {
@@ -697,7 +716,22 @@ function App() {
         <div><label style={{display:'block',marginBottom:6,fontWeight:600}}>Логин (email) *</label><input type="email" value={employeeForm.email} onChange={e=>setEmployeeForm({...employeeForm,email:e.target.value})} placeholder="employee@example.com" /></div>
       </div>
       <button className="primary wide" onClick={addEmployee} disabled={employeeBusy}>{employeeBusy ? 'Сохранение...' : 'Добавить сотрудника'}</button>
-      <div style={{marginTop:22}}><h3 style={{marginBottom:10}}>Список сотрудников</h3>{employees.length===0 ? <div style={{padding:16,background:'#f8fafc',borderRadius:10}}>Сотрудников пока нет.</div> : employees.map(e=><div key={e.id} style={{display:'flex',justifyContent:'space-between',gap:12,padding:'12px 0',borderBottom:'1px solid #eaecf0'}}><div><b>{e.full_name || 'Без ФИО'}</b><div style={{fontSize:13,color:'#667085'}}>{e.phone || 'Телефон не указан'}</div></div><span style={{fontWeight:700}}>{e.role==='manager' ? 'Руководитель' : 'Работник'}</span></div>)}</div>
+      <div style={{marginTop:22}}><h3 style={{marginBottom:10}}>Список сотрудников</h3>{employees.length===0 ? <div style={{padding:16,background:'#f8fafc',borderRadius:10}}>Сотрудников пока нет.</div> : employees.map(e=><div key={e.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,padding:'12px 0',borderBottom:'1px solid #eaecf0'}}><div><b>{e.full_name || 'Без ФИО'}</b><div style={{fontSize:13,color:'#667085'}}>{e.phone || 'Телефон не указан'} · {e.role==='manager' ? 'Руководитель' : 'Работник'}</div></div><button type="button" onClick={()=>setEditingEmployee({id:e.id,full_name:e.full_name||'',phone:e.phone||'',role:e.role||'worker'})}>✏️ Управлять</button></div>)}</div>
+    </div></div>}
+    {editingEmployee && <div className="overlay"><div className="modal" style={{maxWidth:520}}>
+      <div className="modalhead"><h2>Управление сотрудником</h2><button onClick={()=>setEditingEmployee(null)} disabled={employeeBusy}><X/></button></div>
+      <label style={{display:'block',marginBottom:6,fontWeight:600}}>ФИО</label>
+      <input value={editingEmployee.full_name} onChange={e=>setEditingEmployee({...editingEmployee,full_name:e.target.value})}/>
+      <label style={{display:'block',marginBottom:6,fontWeight:600}}>Телефон</label>
+      <input value={editingEmployee.phone} onChange={e=>setEditingEmployee({...editingEmployee,phone:e.target.value})}/>
+      <label style={{display:'block',marginBottom:6,fontWeight:600}}>Роль</label>
+      <select value={editingEmployee.role} onChange={e=>setEditingEmployee({...editingEmployee,role:e.target.value})}>
+        <option value="worker">Работник</option>
+        <option value="manager">Руководитель</option>
+      </select>
+      <button className="primary wide" onClick={saveEmployee} disabled={employeeBusy}>{employeeBusy ? 'Сохранение...' : 'Сохранить'}</button>
+      <button className="wide" style={{marginTop:8}} onClick={()=>setEditingEmployee(null)} disabled={employeeBusy}>Отмена</button>
+    </div></div>}
     </div></div>}
     {showReport && <div className="overlay"><div className="modal">
       <div className="modalhead"><h2>📊 Отчет по датам</h2><button onClick={()=>setShowReport(false)}><X/></button></div>
