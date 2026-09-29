@@ -732,7 +732,6 @@ function App() {
       <button className="primary wide" onClick={saveEmployee} disabled={employeeBusy}>{employeeBusy ? 'Сохранение...' : 'Сохранить'}</button>
       <button className="wide" style={{marginTop:8}} onClick={()=>setEditingEmployee(null)} disabled={employeeBusy}>Отмена</button>
     </div></div>}
-    </div></div>}
     {showReport && <div className="overlay"><div className="modal">
       <div className="modalhead"><h2>📊 Отчет по датам</h2><button onClick={()=>setShowReport(false)}><X/></button></div>
       <p style={{marginTop:0,color:'#667085'}}>Выберите период и выгрузите заявки в Excel.</p>
