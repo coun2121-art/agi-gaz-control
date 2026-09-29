@@ -24,7 +24,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const newFolders = ['ГАУ/1', 'ГАУ/2', 'ГАУ/3', 'ГАУ/4', 'ГАУ/5', 'ГАУ/6', 'ГАУ/7', 'ГазИнвест', 'Юридический'];
-  const [form, setForm] = useState({ address: '', client: '', phone: '', phone2: '', phone3: '', meter: '', model: '', last_verification_date: '', comment: '', folder: 'ГАУ/1' });
+  const [form, setForm] = useState({ address: '', personal_account: '', client: '', phone: '', phone2: '', phone3: '', meter: '', model: '', last_verification_date: '', comment: '', folder: 'ГАУ/1' });
   const [completeId, setCompleteId] = useState(null);
   const [detailItem, setDetailItem] = useState(null);
   const [editItem, setEditItem] = useState(null);
@@ -221,30 +221,31 @@ function App() {
     return status;
   }
 
-  const filtered = items.filter(x => `${x.address || ''} ${x.client_name || ''} ${x.meter_number || ''}`.toLowerCase().includes(q.toLowerCase()));
+  const filtered = items.filter(x => `${x.request_number || ''} ${x.id || ''} ${x.address || ''} ${x.personal_account || ''} ${x.client_name || ''} ${x.phone || ''} ${x.phone2 || ''} ${x.phone3 || ''} ${x.meter_number || ''}`.toLowerCase().includes(q.toLowerCase()));
 
   async function createRequest() {
-    if (!form.address || !form.client || !form.meter) { alert('Заполните адрес, ФИО абонента и номер счётчика'); return; }
+    if (!form.address || !form.personal_account || !form.client || !form.meter) { alert('Заполните адрес, лицевой счёт, ФИО абонента и номер счётчика'); return; }
     if (!form.folder) { alert('Выберите папку для заявки'); return; }
     const { error } = await supabase.from('requests').insert({
-      address: form.address, client_name: form.client, phone: form.phone, phone2: form.phone2 || null, phone3: form.phone3 || null,
+      address: form.address, personal_account: form.personal_account, client_name: form.client, phone: form.phone, phone2: form.phone2 || null, phone3: form.phone3 || null,
       meter_number: form.meter, meter_model: form.model, last_verification_date: form.last_verification_date || null,
       comment: form.comment, folder: form.folder, status: 'Новая'
     });
     if (error) { console.error(error); alert('Ошибка при создании заявки'); return; }
-    setForm({ address: '', client: '', phone: '', phone2: '', phone3: '', meter: '', model: '', last_verification_date: '', comment: '', folder: 'ГАУ/1' });
+    setForm({ address: '', personal_account: '', client: '', phone: '', phone2: '', phone3: '', meter: '', model: '', last_verification_date: '', comment: '', folder: 'ГАУ/1' });
     setShow(false); await loadRequests();
   }
 
   async function updateRequest() {
     if (!editItem) return;
-    if (!editItem.address || !editItem.client_name || !editItem.meter_number) {
-      alert('Заполните адрес, ФИО абонента и номер счётчика');
+    if (!editItem.address || !editItem.personal_account || !editItem.client_name || !editItem.meter_number) {
+      alert('Заполните адрес, лицевой счёт, ФИО абонента и номер счётчика');
       return;
     }
     setEditBusy(true);
     const { data, error } = await supabase.from('requests').update({
       address: editItem.address,
+      personal_account: editItem.personal_account || null,
       client_name: editItem.client_name,
       phone: editItem.phone || null,
       phone2: editItem.phone2 || null,
@@ -484,7 +485,7 @@ function App() {
           </button>
         ))}
       </div>
-      <div className="search"><Search size={19}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Поиск по адресу, абоненту или счётчику..."/></div>
+      <div className="search"><Search size={19}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Поиск по № заявки, адресу, лицевому счёту, абоненту, телефону или счётчику..."/></div>
       {loading && <div style={{padding:30,textAlign:'center'}}>Загрузка заявок...</div>}
       {error && <div style={{padding:30,textAlign:'center'}}>{error}</div>}
       {!loading && !error && (() => {
@@ -521,7 +522,7 @@ function App() {
           {isMyActiveRequest && <div style={{marginBottom:10,padding:'8px 12px',borderRadius:9,background:'#2563eb',color:'#fff',fontWeight:800,textAlign:'center'}}>⭐ ВЫ ВЗЯЛИ ЭТУ ЗАЯВКУ</div>}
           <div className="cardtop"><span className={'status '+status}>{statusText[status] || x.status}</span><span>№ {x.request_number || x.id}</span></div>
           <h2><MapPin size={18}/>{x.address}</h2>
-          <div className="grid"><div><small>Абонент</small><b>{x.client_name}</b></div><div><small>Телефон</small><b style={{display:'grid',gap:4}}>{[x.phone,x.phone2,x.phone3].filter(Boolean).length ? [x.phone,x.phone2,x.phone3].filter(Boolean).map((p,i)=><a key={i} href={`tel:${p.replace(/[^0-9+]/g,'')}`} style={{color:'#2563eb',textDecoration:'none'}} onClick={e=>e.stopPropagation()}>📞 {p}</a>) : '—'}</b></div><div><small>Счётчик</small><b><Gauge size={15}/>{x.meter_number}</b></div><div><small>Модель</small><b>{x.meter_model || '—'}</b></div><div><small>Дата последней поверки</small><b>{x.last_verification_date ? new Date(x.last_verification_date).toLocaleDateString('ru-RU') : '—'}</b></div></div>
+          <div className="grid"><div><small>Лицевой счёт</small><b>{x.personal_account || '—'}</b></div><div><small>Абонент</small><b>{x.client_name}</b></div><div><small>Телефон</small><b style={{display:'grid',gap:4}}>{[x.phone,x.phone2,x.phone3].filter(Boolean).length ? [x.phone,x.phone2,x.phone3].filter(Boolean).map((p,i)=><a key={i} href={`tel:${p.replace(/[^0-9+]/g,'')}`} style={{color:'#2563eb',textDecoration:'none'}} onClick={e=>e.stopPropagation()}>📞 {p}</a>) : '—'}</b></div><div><small>Счётчик</small><b><Gauge size={15}/>{x.meter_number}</b></div><div><small>Модель</small><b>{x.meter_model || '—'}</b></div><div><small>Дата последней поверки</small><b>{x.last_verification_date ? new Date(x.last_verification_date).toLocaleDateString('ru-RU') : '—'}</b></div></div>
           {x.taken_by && <div className="worker"><UserRound size={16}/>Исполнитель:<b>{x.taken_by}</b></div>}
           {x.contact_history?.length > 0 ? <div style={{marginTop:10,padding:'10px 12px',background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:10,fontSize:13,color:'#9a3412'}}>
             <b>📞 История связи</b>
@@ -726,6 +727,7 @@ function App() {
         <div><small>Статус</small><div><b>{detailItem.status || '—'}</b></div></div>
         <div><small>Папка</small><div>{detailItem.folder || '—'}</div></div>
         <div><small>Адрес</small><div>{detailItem.address || '—'}</div></div>
+        <div><small>Лицевой счёт</small><div>{detailItem.personal_account || '—'}</div></div>
         <div><small>Абонент</small><div>{detailItem.client_name || '—'}</div></div>
         <div><small>Телефон</small><div style={{display:'grid',gap:6}}>{[detailItem.phone,detailItem.phone2,detailItem.phone3].filter(Boolean).length ? [detailItem.phone,detailItem.phone2,detailItem.phone3].filter(Boolean).map((p,i)=><a key={i} href={`tel:${p.replace(/[^0-9+]/g,'')}`} style={{color:'#2563eb',fontWeight:700,textDecoration:'none'}}>📞 {p}</a>) : '—'}</div></div>
         <div><small>Счётчик</small><div>{detailItem.meter_number || '—'}</div></div>
@@ -762,6 +764,7 @@ function App() {
     {editItem && <div className="overlay"><div className="modal">
       <div className="modalhead"><h2>Редактирование заявки № {editItem.request_number || editItem.id}</h2><button onClick={()=>setEditItem(null)}><X/></button></div>
       <input placeholder="Адрес" value={editItem.address || ''} onChange={e=>setEditItem({...editItem,address:e.target.value})}/>
+      <input placeholder="Лицевой счёт" value={editItem.personal_account || ''} onChange={e=>setEditItem({...editItem,personal_account:e.target.value})}/>
       <input placeholder="ФИО абонента" value={editItem.client_name || ''} onChange={e=>setEditItem({...editItem,client_name:e.target.value})}/>
       <input placeholder="Телефон" value={editItem.phone || ''} onChange={e=>setEditItem({...editItem,phone:e.target.value})}/>
       <input placeholder="Дополнительный телефон 2" value={editItem.phone2 || ''} onChange={e=>setEditItem({...editItem,phone2:e.target.value})}/>
@@ -867,6 +870,7 @@ function App() {
     </div></div>}
     {show && <div className="overlay"><div className="modal"><div className="modalhead"><h2>Новая заявка</h2><button onClick={()=>setShow(false)}><X/></button></div>
       <input placeholder="Адрес" value={form.address} onChange={e=>setForm({...form,address:e.target.value})}/>
+      <input placeholder="Лицевой счёт" value={form.personal_account} onChange={e=>setForm({...form,personal_account:e.target.value})}/>
       <input placeholder="ФИО абонента" value={form.client} onChange={e=>setForm({...form,client:e.target.value})}/>
       <input placeholder="Телефон" value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/>
       <input placeholder="Дополнительный телефон 2" value={form.phone2} onChange={e=>setForm({...form,phone2:e.target.value})}/>
