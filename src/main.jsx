@@ -24,7 +24,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const newFolders = ['ГАУ/1', 'ГАУ/2', 'ГАУ/3', 'ГАУ/4', 'ГАУ/5', 'ГАУ/6', 'ГАУ/7', 'ГазИнвест', 'Юридический'];
-  const [form, setForm] = useState({ address: '', client: '', phone: '', meter: '', model: '', last_verification_date: '', comment: '', folder: 'ГАУ/1' });
+  const [form, setForm] = useState({ address: '', client: '', phone: '', phone2: '', phone3: '', meter: '', model: '', last_verification_date: '', comment: '', folder: 'ГАУ/1' });
   const [completeId, setCompleteId] = useState(null);
   const [detailItem, setDetailItem] = useState(null);
   const [editItem, setEditItem] = useState(null);
@@ -186,7 +186,9 @@ function App() {
       'Проверка': x.verification_status || '',
       'Адрес': x.address || '',
       'Абонент': x.client_name || '',
-      'Телефон': x.phone || '',
+      'Телефон 1': x.phone || '',
+      'Телефон 2': x.phone2 || '',
+      'Телефон 3': x.phone3 || '',
       'Номер счётчика': x.meter_number || '',
       'Модель': x.meter_model || '',
       'Исполнитель': x.taken_by || '',
@@ -225,12 +227,12 @@ function App() {
     if (!form.address || !form.client || !form.meter) { alert('Заполните адрес, ФИО абонента и номер счётчика'); return; }
     if (!form.folder) { alert('Выберите папку для заявки'); return; }
     const { error } = await supabase.from('requests').insert({
-      address: form.address, client_name: form.client, phone: form.phone,
+      address: form.address, client_name: form.client, phone: form.phone, phone2: form.phone2 || null, phone3: form.phone3 || null,
       meter_number: form.meter, meter_model: form.model, last_verification_date: form.last_verification_date || null,
       comment: form.comment, folder: form.folder, status: 'Новая'
     });
     if (error) { console.error(error); alert('Ошибка при создании заявки'); return; }
-    setForm({ address: '', client: '', phone: '', meter: '', model: '', last_verification_date: '', comment: '', folder: 'ГАУ/1' });
+    setForm({ address: '', client: '', phone: '', phone2: '', phone3: '', meter: '', model: '', last_verification_date: '', comment: '', folder: 'ГАУ/1' });
     setShow(false); await loadRequests();
   }
 
@@ -245,6 +247,8 @@ function App() {
       address: editItem.address,
       client_name: editItem.client_name,
       phone: editItem.phone || null,
+      phone2: editItem.phone2 || null,
+      phone3: editItem.phone3 || null,
       meter_number: editItem.meter_number,
       meter_model: editItem.meter_model || null,
       last_verification_date: editItem.last_verification_date || null,
@@ -517,7 +521,7 @@ function App() {
           {isMyActiveRequest && <div style={{marginBottom:10,padding:'8px 12px',borderRadius:9,background:'#2563eb',color:'#fff',fontWeight:800,textAlign:'center'}}>⭐ ВЫ ВЗЯЛИ ЭТУ ЗАЯВКУ</div>}
           <div className="cardtop"><span className={'status '+status}>{statusText[status] || x.status}</span><span>№ {x.request_number || x.id}</span></div>
           <h2><MapPin size={18}/>{x.address}</h2>
-          <div className="grid"><div><small>Абонент</small><b>{x.client_name}</b></div><div><small>Телефон</small><b>{x.phone || '—'}</b></div><div><small>Счётчик</small><b><Gauge size={15}/>{x.meter_number}</b></div><div><small>Модель</small><b>{x.meter_model || '—'}</b></div><div><small>Дата последней поверки</small><b>{x.last_verification_date ? new Date(x.last_verification_date).toLocaleDateString('ru-RU') : '—'}</b></div></div>
+          <div className="grid"><div><small>Абонент</small><b>{x.client_name}</b></div><div><small>Телефон</small><b style={{display:'grid',gap:4}}>{[x.phone,x.phone2,x.phone3].filter(Boolean).length ? [x.phone,x.phone2,x.phone3].filter(Boolean).map((p,i)=><a key={i} href={`tel:${p.replace(/[^0-9+]/g,'')}`} style={{color:'#2563eb',textDecoration:'none'}} onClick={e=>e.stopPropagation()}>📞 {p}</a>) : '—'}</b></div><div><small>Счётчик</small><b><Gauge size={15}/>{x.meter_number}</b></div><div><small>Модель</small><b>{x.meter_model || '—'}</b></div><div><small>Дата последней поверки</small><b>{x.last_verification_date ? new Date(x.last_verification_date).toLocaleDateString('ru-RU') : '—'}</b></div></div>
           {x.taken_by && <div className="worker"><UserRound size={16}/>Исполнитель:<b>{x.taken_by}</b></div>}
           {x.contact_history?.length > 0 ? <div style={{marginTop:10,padding:'10px 12px',background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:10,fontSize:13,color:'#9a3412'}}>
             <b>📞 История связи</b>
@@ -723,7 +727,7 @@ function App() {
         <div><small>Папка</small><div>{detailItem.folder || '—'}</div></div>
         <div><small>Адрес</small><div>{detailItem.address || '—'}</div></div>
         <div><small>Абонент</small><div>{detailItem.client_name || '—'}</div></div>
-        <div><small>Телефон</small><div>{detailItem.phone || '—'}</div></div>
+        <div><small>Телефон</small><div style={{display:'grid',gap:6}}>{[detailItem.phone,detailItem.phone2,detailItem.phone3].filter(Boolean).length ? [detailItem.phone,detailItem.phone2,detailItem.phone3].filter(Boolean).map((p,i)=><a key={i} href={`tel:${p.replace(/[^0-9+]/g,'')}`} style={{color:'#2563eb',fontWeight:700,textDecoration:'none'}}>📞 {p}</a>) : '—'}</div></div>
         <div><small>Счётчик</small><div>{detailItem.meter_number || '—'}</div></div>
         <div><small>Модель</small><div>{detailItem.meter_model || '—'}</div></div>
         <div><small>Дата последней поверки</small><div>{detailItem.last_verification_date ? new Date(detailItem.last_verification_date).toLocaleDateString('ru-RU') : '—'}</div></div>
@@ -760,6 +764,8 @@ function App() {
       <input placeholder="Адрес" value={editItem.address || ''} onChange={e=>setEditItem({...editItem,address:e.target.value})}/>
       <input placeholder="ФИО абонента" value={editItem.client_name || ''} onChange={e=>setEditItem({...editItem,client_name:e.target.value})}/>
       <input placeholder="Телефон" value={editItem.phone || ''} onChange={e=>setEditItem({...editItem,phone:e.target.value})}/>
+      <input placeholder="Дополнительный телефон 2" value={editItem.phone2 || ''} onChange={e=>setEditItem({...editItem,phone2:e.target.value})}/>
+      <input placeholder="Дополнительный телефон 3" value={editItem.phone3 || ''} onChange={e=>setEditItem({...editItem,phone3:e.target.value})}/>
       <input placeholder="Номер счётчика" value={editItem.meter_number || ''} onChange={e=>setEditItem({...editItem,meter_number:e.target.value})}/>
       <input placeholder="Модель счётчика" value={editItem.meter_model || ''} onChange={e=>setEditItem({...editItem,meter_model:e.target.value})}/>
       <label style={{display:'block',marginBottom:6,fontWeight:600}}>Дата последней поверки</label>
@@ -863,6 +869,8 @@ function App() {
       <input placeholder="Адрес" value={form.address} onChange={e=>setForm({...form,address:e.target.value})}/>
       <input placeholder="ФИО абонента" value={form.client} onChange={e=>setForm({...form,client:e.target.value})}/>
       <input placeholder="Телефон" value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/>
+      <input placeholder="Дополнительный телефон 2" value={form.phone2} onChange={e=>setForm({...form,phone2:e.target.value})}/>
+      <input placeholder="Дополнительный телефон 3" value={form.phone3} onChange={e=>setForm({...form,phone3:e.target.value})}/>
       <input placeholder="Номер счётчика" value={form.meter} onChange={e=>setForm({...form,meter:e.target.value})}/>
       <input placeholder="Модель счётчика" value={form.model} onChange={e=>setForm({...form,model:e.target.value})}/>
       <label style={{display:'block',marginBottom:6,fontWeight:600}}>Папка *</label>
