@@ -80,37 +80,64 @@ function App() {
   async function logout() { await supabase.auth.signOut(); }
 
   async function loadEmployees() {
-    const { data, error } = await supabase.from('profiles').select('*').order('full_name', { ascending: true });
-    if (error) { console.error(error); alert('Не удалось загрузить сотрудников'); return; }
+    if (!isManagerProfile()) return;
+    setEmployeeBusy(true);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id,full_name,phone,role')
+      .order('full_name', { ascending: true });
+    setEmployeeBusy(false);
+    if (error) {
+      console.error('loadEmployees:', error);
+      alert('Не удалось загрузить сотрудников. Проверьте права RLS для таблицы profiles.\n\n' + (error.message || 'Неизвестная ошибка'));
+      return;
+    }
     setEmployees(data || []);
   }
 
+  function isManagerProfile() {
+    return profile?.role === 'manager';
+  }
+
   async function addEmployee() {
-    if (!employeeForm.full_name.trim() || !employeeForm.email.trim()) {
-      alert('Укажите ФИО и email сотрудника');
-      return;
-    }
-    alert('Для безопасного создания нового логина нужен отдельный серверный шаг через Supabase Auth. Сейчас можно управлять уже зарегистрированными пользователями.');
+    alert('Новые логины создаются через Supabase Auth. В этом разделе руководитель управляет уже зарегистрированными пользователями.');
   }
 
   async function saveEmployee() {
     if (!editingEmployee) return;
+    if (!isManagerProfile()) {
+      alert('Изменять сотрудников может только руководитель.');
+      return;
+    }
     if (!editingEmployee.full_name.trim()) {
       alert('Укажите ФИО сотрудника');
       return;
     }
+    if (!['worker', 'manager'].includes(editingEmployee.role)) {
+      alert('Выберите корректную роль');
+      return;
+    }
+
     setEmployeeBusy(true);
-    const { data, error } = await supabase.from('profiles').update({
+    const payload = {
       full_name: editingEmployee.full_name.trim(),
       phone: editingEmployee.phone?.trim() || null,
       role: editingEmployee.role
-    }).eq('id', editingEmployee.id).select().single();
+    };
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(payload)
+      .eq('id', editingEmployee.id)
+      .select('id,full_name,phone,role')
+      .single();
     setEmployeeBusy(false);
+
     if (error) {
-      console.error(error);
-      alert('Не удалось сохранить данные сотрудника');
+      console.error('saveEmployee:', error);
+      alert('Не удалось сохранить данные сотрудника. Проверьте права RLS для таблицы profiles.\n\n' + (error.message || 'Неизвестная ошибка'));
       return;
     }
+
     setEmployees(prev => prev.map(item => item.id === data.id ? data : item));
     if (profile.id === data.id) setProfile(data);
     setEditingEmployee(null);
@@ -716,7 +743,7 @@ function App() {
         <div><label style={{display:'block',marginBottom:6,fontWeight:600}}>Логин (email) *</label><input type="email" value={employeeForm.email} onChange={e=>setEmployeeForm({...employeeForm,email:e.target.value})} placeholder="employee@example.com" /></div>
       </div>
       <button className="primary wide" onClick={addEmployee} disabled={employeeBusy}>{employeeBusy ? 'Сохранение...' : 'Добавить сотрудника'}</button>
-      <div style={{marginTop:22}}><h3 style={{marginBottom:10}}>Список сотрудников</h3>{employees.length===0 ? <div style={{padding:16,background:'#f8fafc',borderRadius:10}}>Сотрудников пока нет.</div> : employees.map(e=><div key={e.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,padding:'12px 0',borderBottom:'1px solid #eaecf0'}}><div><b>{e.full_name || 'Без ФИО'}</b><div style={{fontSize:13,color:'#667085'}}>{e.phone || 'Телефон не указан'} · {e.role==='manager' ? 'Руководитель' : 'Работник'}</div></div><button type="button" onClick={()=>setEditingEmployee({id:e.id,full_name:e.full_name||'',phone:e.phone||'',role:e.role||'worker'})}>✏️ Управлять</button></div>)}</div>
+      <div style={{marginTop:22}}><h3 style={{marginBottom:10}}>Зарегистрированные пользователи</h3>{employees.length===0 ? <div style={{padding:16,background:'#f8fafc',borderRadius:10}}>Зарегистрированных пользователей пока нет.</div> : employees.map(e=><div key={e.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,padding:'12px 0',borderBottom:'1px solid #eaecf0'}}><div><b>{e.full_name || 'Без ФИО'}</b><div style={{fontSize:13,color:'#667085'}}>{e.phone || 'Телефон не указан'} · {e.role==='manager' ? 'Руководитель' : 'Работник'}</div></div><button type="button" onClick={()=>setEditingEmployee({id:e.id,full_name:e.full_name||'',phone:e.phone||'',role:e.role||'worker'})}>✏️ Управлять</button></div>)}</div>
     </div></div>}
     {editingEmployee && <div className="overlay"><div className="modal" style={{maxWidth:520}}>
       <div className="modalhead"><h2>Управление сотрудником</h2><button onClick={()=>setEditingEmployee(null)} disabled={employeeBusy}><X/></button></div>
