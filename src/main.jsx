@@ -23,7 +23,8 @@ function App() {
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [form, setForm] = useState({ address: '', client: '', phone: '', meter: '', model: '', last_verification_date: '', comment: '' });
+  const newFolders = ['ГАУ/1', 'ГАУ/2', 'ГАУ/3', 'ГАУ/4', 'ГАУ/5', 'ГАУ/6', 'ГАУ/7', 'ГазИнвест', 'Юридический'];
+  const [form, setForm] = useState({ address: '', client: '', phone: '', meter: '', model: '', last_verification_date: '', comment: '', folder: 'ГАУ/1' });
   const [completeId, setCompleteId] = useState(null);
   const [detailItem, setDetailItem] = useState(null);
   const [editItem, setEditItem] = useState(null);
@@ -31,6 +32,7 @@ function App() {
   const [completeForm, setCompleteForm] = useState({ result: '', readings: '', worker_comment: '', photo: null, verification_status: '' });
   const [selectedStatus, setSelectedStatus] = useState('new');
   const [collapsedDoneDates, setCollapsedDoneDates] = useState({});
+  const [collapsedNewFolders, setCollapsedNewFolders] = useState({});
   const [showReport, setShowReport] = useState(false);
   const [reportFrom, setReportFrom] = useState('');
   const [reportTo, setReportTo] = useState('');
@@ -221,12 +223,14 @@ function App() {
 
   async function createRequest() {
     if (!form.address || !form.client || !form.meter) { alert('Заполните адрес, ФИО абонента и номер счётчика'); return; }
+    if (!form.folder) { alert('Выберите папку для заявки'); return; }
     const { error } = await supabase.from('requests').insert({
       address: form.address, client_name: form.client, phone: form.phone,
-      meter_number: form.meter, meter_model: form.model, last_verification_date: form.last_verification_date || null, comment: form.comment, status: 'Новая'
+      meter_number: form.meter, meter_model: form.model, last_verification_date: form.last_verification_date || null,
+      comment: form.comment, folder: form.folder, status: 'Новая'
     });
     if (error) { console.error(error); alert('Ошибка при создании заявки'); return; }
-    setForm({ address: '', client: '', phone: '', meter: '', model: '', last_verification_date: '', comment: '' });
+    setForm({ address: '', client: '', phone: '', meter: '', model: '', last_verification_date: '', comment: '', folder: 'ГАУ/1' });
     setShow(false); await loadRequests();
   }
 
@@ -581,7 +585,86 @@ function App() {
           </div>
           {list.length ? <div className="cards">{list.map(renderCard)}</div> : <div style={{padding:26,textAlign:'center',background:'#f8fafc',borderRadius:12,color:'#667085'}}>{emptyText}</div>}
         </section>;
-        if (selectedStatus === 'new') return section('Новые заявки',newItems,'Новых заявок нет');
+        if (selectedStatus === 'new') {
+          const folderGroups = newFolders.map(folder => ({
+            folder,
+            list: newItems.filter(x => (x.folder || '') === folder)
+          }));
+          const unassignedNewItems = newItems.filter(x => !x.folder || !newFolders.includes(x.folder));
+
+          return <section style={{marginTop:20}}>
+            <div style={{
+              display:'flex',
+              alignItems:'center',
+              justifyContent:'space-between',
+              gap:12,
+              marginBottom:12,
+              padding:'4px 2px'
+            }}>
+              <div>
+                <h2 style={{margin:0,fontSize:21}}>Новые заявки</h2>
+                <div style={{fontSize:13,color:'#667085',marginTop:3}}>Папки: 9 · Всего новых заявок: {newItems.length}</div>
+              </div>
+              <span style={{minWidth:34,height:34,padding:'0 10px',display:'inline-flex',alignItems:'center',justifyContent:'center',borderRadius:18,background:'#f2f4f7',fontWeight:800,color:'#344054'}}>{newItems.length}</span>
+            </div>
+
+            {folderGroups.map(({folder,list}) => {
+              const isCollapsed = !!collapsedNewFolders[folder];
+              return <div key={folder} style={{marginBottom:12}}>
+                <button
+                  type="button"
+                  onClick={()=>setCollapsedNewFolders(prev=>({...prev,[folder]:!prev[folder]}))}
+                  style={{
+                    width:'100%',
+                    display:'flex',
+                    alignItems:'center',
+                    justifyContent:'space-between',
+                    gap:12,
+                    padding:'14px 16px',
+                    background:'#fff',
+                    border:'1px solid #d0d5dd',
+                    borderRadius:12,
+                    cursor:'pointer',
+                    textAlign:'left',
+                    boxShadow:'0 2px 8px rgba(16,24,40,.04)'
+                  }}
+                >
+                  <div style={{display:'flex',alignItems:'center',gap:10}}>
+                    <span style={{fontSize:18}}>{isCollapsed ? '▶' : '▼'}</span>
+                    <span style={{fontSize:20}}>📁</span>
+                    <b style={{fontSize:16}}>{folder}</b>
+                  </div>
+                  <span style={{
+                    minWidth:36,
+                    height:30,
+                    padding:'0 10px',
+                    display:'inline-flex',
+                    alignItems:'center',
+                    justifyContent:'center',
+                    borderRadius:16,
+                    background:list.length ? '#eaf2ff' : '#f2f4f7',
+                    color:list.length ? '#175cd3' : '#667085',
+                    fontWeight:800
+                  }}>{list.length}</span>
+                </button>
+                {!isCollapsed && (
+                  <div style={{marginTop:8}}>
+                    {list.length
+                      ? <div className="cards">{list.map(renderCard)}</div>
+                      : <div style={{padding:20,textAlign:'center',background:'#f8fafc',borderRadius:10,color:'#667085'}}>В этой папке заявок нет</div>}
+                  </div>
+                )}
+              </div>;
+            })}
+
+            {unassignedNewItems.length > 0 && <div style={{marginTop:14}}>
+              <div style={{padding:'11px 14px',background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:10,color:'#9a3412',fontWeight:700}}>
+                ⚠️ Заявки без папки: {unassignedNewItems.length}
+              </div>
+              <div style={{marginTop:8}} className="cards">{unassignedNewItems.map(renderCard)}</div>
+            </div>}
+          </section>;
+        }
         if (selectedStatus === 'working') return section('Заявки в работе',workingItems,'Заявок в работе нет');
         if (selectedStatus === 'done') return <section style={{marginTop:20}}>
           <div style={{
@@ -637,6 +720,7 @@ function App() {
       <div className="modalhead"><h2>Заявка № {detailItem.request_number || detailItem.id}</h2><button onClick={()=>setDetailItem(null)}><X/></button></div>
       <div style={{display:'grid',gap:12}}>
         <div><small>Статус</small><div><b>{detailItem.status || '—'}</b></div></div>
+        <div><small>Папка</small><div>{detailItem.folder || '—'}</div></div>
         <div><small>Адрес</small><div>{detailItem.address || '—'}</div></div>
         <div><small>Абонент</small><div>{detailItem.client_name || '—'}</div></div>
         <div><small>Телефон</small><div>{detailItem.phone || '—'}</div></div>
@@ -781,6 +865,10 @@ function App() {
       <input placeholder="Телефон" value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/>
       <input placeholder="Номер счётчика" value={form.meter} onChange={e=>setForm({...form,meter:e.target.value})}/>
       <input placeholder="Модель счётчика" value={form.model} onChange={e=>setForm({...form,model:e.target.value})}/>
+      <label style={{display:'block',marginBottom:6,fontWeight:600}}>Папка *</label>
+      <select value={form.folder} onChange={e=>setForm({...form,folder:e.target.value})}>
+        {newFolders.map(folder => <option key={folder} value={folder}>{folder}</option>)}
+      </select>
       <label style={{display:'block',marginBottom:6,fontWeight:600}}>Дата последней поверки</label>
       <input type="date" value={form.last_verification_date} onChange={e=>setForm({...form,last_verification_date:e.target.value})}/>
       <textarea placeholder="Комментарий" value={form.comment} onChange={e=>setForm({...form,comment:e.target.value})}/>
