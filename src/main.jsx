@@ -32,7 +32,17 @@ function App() {
   const [completeForm, setCompleteForm] = useState({ result: '', readings: '', worker_comment: '', photo: null, verification_status: '' });
   const [selectedStatus, setSelectedStatus] = useState('new');
   const [collapsedDoneDates, setCollapsedDoneDates] = useState({});
-  const [collapsedNewFolders, setCollapsedNewFolders] = useState({});
+  const [collapsedNewFolders, setCollapsedNewFolders] = useState(() => ({
+    'ГАУ/1': true,
+    'ГАУ/2': true,
+    'ГАУ/3': true,
+    'ГАУ/4': true,
+    'ГАУ/5': true,
+    'ГАУ/6': true,
+    'ГАУ/7': true,
+    'ГазИнвест': true,
+    'Юридический': true
+  }));
   const [showReport, setShowReport] = useState(false);
   const [reportFrom, setReportFrom] = useState('');
   const [reportTo, setReportTo] = useState('');
